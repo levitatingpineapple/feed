@@ -1,22 +1,24 @@
 use std::io::Write;
-
+use js_int::uint;
 use matrix_sdk::{
 	Client, 
 	config::SyncSettings,
-	media::{
-		MediaRequest,
-		MediaFormat
-	},
 	ruma::{
 		user_id, 
-		events::room::{
-			message::{
-				SyncRoomMessageEvent, 
-				MessageType
-			}, MediaSource
+		room_id, 
+		events::{
+			room::{
+				message::MessageType,
+				MediaSource
+			}, 
+			MessageLikeEvent, 
+			AnyTimelineEvent, 
+			AnyMessageLikeEvent
 		},
-	},
-	room::Room, Media,
+	}, 
+	room::MessagesOptions, 
+	media::{MediaFormat, MediaRequest}, 
+	Media,
 };
 
 #[tokio::main]
@@ -29,35 +31,45 @@ async fn main() -> anyhow::Result<()> {
 	client.login_username(bot, "sorzon-korqi7-sekWug")
 		.send()
 		.await?;
-	client.add_event_handler(on_room_message);
-	client.sync(SyncSettings::default())
-		.await?;
-	Ok(())
-}
-
-async fn on_room_message(ev: SyncRoomMessageEvent, room: Room, client: Client) {
-	if room.room_id().as_str() == "!xLb6sbIQiWRiRuXt:n0g.rip" {
-		match &ev.as_original().unwrap().content.msgtype {
-			MessageType::Audio(audio) => {
-				write_media_content(
-					&audio.source, 
-					&audio.body, 
-					client.media()
-				).await;
-			},
-			MessageType::Image(image) => {
-				write_media_content(
-					&image.source, 
-					&image.body, 
-					client.media()
-				).await;
-			},
-			MessageType::Text(text) => {
-				println!("{}", text.body);
+	client.sync_once(SyncSettings::default()).await?;
+	if let Some(joined_room) = client.get_joined_room(room_id!("!xLb6sbIQiWRiRuXt:n0g.rip")) {
+		let mut options = MessagesOptions::backward();
+		options.limit = uint!(1000);
+		let messages = joined_room.messages(options).await?;
+		for timeline_event in messages.chunk.iter() {
+			if let Ok(
+				AnyTimelineEvent::MessageLike(
+					AnyMessageLikeEvent::RoomMessage(
+						MessageLikeEvent::Original(message)
+					)
+				)
+			) = timeline_event.event.deserialize() {
+				match message.content.msgtype {
+					MessageType::Audio(audio) => {
+						write_media_content(
+							&audio.source, 
+							&audio.body, 
+							client.media()
+						).await;
+						println!("{}", audio .body);
+					},
+					MessageType::Image(image) => {
+						write_media_content(
+							&image.source, 
+							&image.body, 
+							client.media()
+						).await;
+						println!("{}", image.body);
+					},
+					MessageType::Text(text) => {
+						println!("{}", text.body);
+					}
+					_ => {}
+				}
 			}
-			_ => {}
 		}
-	}
+	} else { panic!("Room not found!"); }
+	anyhow::Ok(())
 }
 
 async fn write_media_content(source: &MediaSource, file_name: &String, media: Media) {
