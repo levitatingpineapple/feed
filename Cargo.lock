@@ -1186,7 +1186,6 @@ dependencies = [
  "base64",
  "dashmap",
  "derive_builder",
- "futures-util",
  "getrandom 0.2.8",
  "indexed_db_futures",
  "js-sys",
