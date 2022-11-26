@@ -1,0 +1,27 @@
+body {
+	background-color: #121212;
+	font-family: sans-serif;
+	color: white;
+}
+video, audio, p, img, time {
+	width: min(640px, 92vw);
+	display: block;
+	margin: auto;
+	margin-top: 32px;
+}
+video, img, p {
+	border-radius: 16px;
+}
+p {
+	width: min(608px, calc(92vw - 32px));
+	background-color: #2C2C2C;
+	line-height: 1.4em;
+	padding: 16px;
+}
+time {
+	width: min(640px, 92vw);
+	color: #808080;
+	text-align: end;
+	margin-top: 4px;
+	margin-bottom: 32px;
+}

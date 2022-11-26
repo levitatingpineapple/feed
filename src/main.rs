@@ -1,17 +1,9 @@
+use chrono::*;
+use std::io::Write;
 use matrix_sdk::{
-	ruma::{
-		*, 
-		events::{
-			*,
-			room::{
-				message::MessageType, 
-				MediaSource
-			}, 
-		}
-	}, 
+	ruma::{*,events::{*,room::{message::MessageType, MediaSource}}}, 
 	media::MediaEventContent
 };
-use std::io::Write;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -38,13 +30,14 @@ async fn main() -> anyhow::Result<()> {
 					)
 				)
 			) = timeline_event.event.deserialize() {
-				println!("{:?}", message.content.body());
 				write_message(message.content.msgtype, &mut buffer);
+				write_time(message.origin_server_ts, &mut buffer);
 			}
 		}
 		write_trailing(&mut buffer);
 		std::fs::write("./feed.html", buffer).expect("Unable to write file");
 	} else { panic!("Room not found!"); }
+	client.logout().await?;
 	anyhow::Ok(())
 }
 
@@ -55,45 +48,37 @@ r#"
 <html>
 <head>
 	<title>Feed</title>
+	<meta charset="UTF-8">
 	<meta name="viewport" content="initial-scale=1">
-	<style type="text/css">
-		body {{
-			color: white;
-			background-color: #121212;
-			font-family: sans-serif;
-		}}
-		video, audio, p, img {{
-			display: block;
-			margin: auto;
-			width: min(640px, 92vw);
-			margin-top: 32px;
-			margin-bottom: 32px;
-		}}
-		video, img, p {{
-			border-radius: 16px;
-		}}
-		p {{
-			width: min(608px, calc(92vw - 32px));
-			background-color: #2C2C2C;
-			padding: 16px;
-			line-height: 1.4em;
-		}}
-	</style>
+	<link rel="stylesheet" href="feed.css">
 </head>
 	<body>
 "#
 	).unwrap();
 }
 
+fn write_time(ms: MilliSecondsSinceUnixEpoch, buffer: &mut Vec<u8>) {
+	let system_time = ms.to_system_time().unwrap();
+	let date = DateTime::<Local>::from(system_time);
+	write!(
+		buffer, 
+r#"		<time>{}</time>
+"#, 
+		date.format("%b %d, %H:%M").to_string()
+	).unwrap();
+}
+
 fn write_message(message_type: MessageType, buffer: &mut Vec<u8>) {
+	let download_path: &str = "https://n0g.rip/_matrix/media/r0/download/n0g.rip/";
 	match message_type {
 		MessageType::Audio(audio) => {
 			if let MediaSource::Plain(uri) = audio.source {
 				write!(buffer,
 r#"		<audio controls>
-			<source src="https://n0g.rip/_matrix/media/r0/download/n0g.rip/{}" type="{}">
+			<source src="{}{}" type="{}">
 		</audio>
-"#, 
+"#,
+					download_path,
 					uri.media_id().unwrap(), 
 					audio.info.unwrap().mimetype.unwrap()
 				).unwrap();
@@ -102,8 +87,9 @@ r#"		<audio controls>
 		MessageType::Image(image) => {
 			if let MediaSource::Plain(uri) = image.source {
 				write!(buffer,
-r#"		<img src="https://n0g.rip/_matrix/media/r0/download/n0g.rip/{}" type="{}">
+r#"		<img src="{}{}" type="{}">
 "#,
+					download_path,
 					uri.media_id().unwrap(),
 					image.info.unwrap().mimetype.unwrap()
 				).unwrap();
@@ -113,18 +99,20 @@ r#"		<img src="https://n0g.rip/_matrix/media/r0/download/n0g.rip/{}" type="{}">
 			write!(buffer,
 r#"		<p>{}</p>
 "#,
-				text.body,
+				text.body.replace("\n", "<br>"),
 			).unwrap();
 		}
 		MessageType::Video(video) => {
 			if let Some(MediaSource::Plain(thumbnail_source)) = video.thumbnail_source() {
 				if let MediaSource::Plain(uri) = video.source {
 					write!(buffer,
-r#"		<video controls poster="https://n0g.rip/_matrix/media/r0/download/n0g.rip/{}">
-			<source src="https://n0g.rip/_matrix/media/r0/download/n0g.rip/{}" type="{}">
+r#"		<video controls poster="{}{}">
+			<source src="{}{}" type="{}">
 		</video>
-"#, 				
+"#,
+						download_path,
 						thumbnail_source.media_id().unwrap(),
+						download_path,
 						uri.media_id().unwrap(), 
 						video.info.unwrap().mimetype.unwrap()
 					).unwrap();
@@ -137,8 +125,7 @@ r#"		<video controls poster="https://n0g.rip/_matrix/media/r0/download/n0g.rip/{
 
 fn write_trailing(buffer: &mut Vec<u8>) {
 	write!(buffer,
-r#"
-	</body>
+r#"	</body>
 </html>
 "#
 	).unwrap();
