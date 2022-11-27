@@ -11,11 +11,7 @@ async fn main() -> std::io::Result<()> {
 	HttpServer::new(|| App::new()
 		.route("/", web::get().to(root))
 		.route("/style.css", web::get().to(style))
-	).bind(("127.0.0.1", 8080))?.run().await
-}
-
-async fn style(_req: HttpRequest) -> impl Responder {
-	HttpResponse::Ok().body(include_str!("./style.css"))
+	).bind(("127.0.0.1", 5002))?.run().await
 }
 
 async fn root(_req: HttpRequest) -> impl Responder {
@@ -32,6 +28,10 @@ async fn root(_req: HttpRequest) -> impl Responder {
 		}
 	}
 	HttpResponse::Ok().body("Error")
+}
+
+async fn style(_req: HttpRequest) -> impl Responder {
+	HttpResponse::Ok().body(include_str!("./style.css"))
 }
 
 async fn messages() -> Option<Vec<OriginalMessageLikeEvent<RoomMessageEventContent>>> {
