@@ -9,8 +9,9 @@ use matrix_sdk::{
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
 	HttpServer::new(|| App::new()
-		.route("/", web::get().to(root))
-		.route("/style.css", web::get().to(style))
+		.route("/feed", web::get().to(root))
+		.route("/feed/style", web::get().to(style))
+		.route("/feed/rss/", web::get().to(rss))
 	).bind(("127.0.0.1", 5002))?.run().await
 }
 
@@ -34,6 +35,10 @@ async fn style(_req: HttpRequest) -> impl Responder {
 	HttpResponse::Ok().body(include_str!("./style.css"))
 }
 
+async fn rss(_req: HttpRequest) -> String {
+	include_str!("./feed.rss").to_string()
+}
+
 async fn messages() -> Option<Vec<OriginalMessageLikeEvent<RoomMessageEventContent>>> {
 	let bot = user_id!("@bot:n0g.rip");
 	let client = matrix_sdk::Client::builder()
@@ -41,9 +46,11 @@ async fn messages() -> Option<Vec<OriginalMessageLikeEvent<RoomMessageEventConte
 	client.login_username(bot, "sorzon-korqi7-sekWug").send().await.unwrap();
 	client.sync_once(matrix_sdk::config::SyncSettings::default()).await.unwrap();
 	if let Some(joined_room) = client.get_joined_room(room_id!("!xLb6sbIQiWRiRuXt:n0g.rip")) {
+		let mut options = matrix_sdk::room::MessagesOptions::backward();
+		options.limit = uint!(100);
 		return Some(
 			joined_room
-				.messages(matrix_sdk::room::MessagesOptions::backward())
+				.messages(options)
 				.await.unwrap()
 				.chunk.iter()
 				.filter_map(|event| {
@@ -72,7 +79,7 @@ r#"<!DOCTYPE html>
 	<title>Feed</title>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="initial-scale=1">
-	<link rel="stylesheet" href="style.css">
+	<link rel="stylesheet" href="/feed/style">
 </head>
 	<body>
 "#
