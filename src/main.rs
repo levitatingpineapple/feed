@@ -1,56 +1,78 @@
 use chrono::*;
+use actix_web::*;
 use std::io::Write;
 use matrix_sdk::{
-	ruma::{*,events::{*,room::{message::MessageType, MediaSource}}}, 
+	ruma::{*,events::{*,room::{message::{MessageType, RoomMessageEventContent}, MediaSource}}}, 
 	media::MediaEventContent
 };
 
-#[tokio::main]
-async fn main() -> anyhow::Result<()> {
-	let bot = user_id!("@bot:n0g.rip");
-	let client = matrix_sdk::Client::builder()
-		.server_name(bot.server_name())
-		.build()
-		.await?;
-	client.login_username(bot, "sorzon-korqi7-sekWug")
-		.send()
-		.await?;
-	client.sync_once(matrix_sdk::config::SyncSettings::default()).await?;
-	if let Some(joined_room) = client.get_joined_room(room_id!("!xLb6sbIQiWRiRuXt:n0g.rip")) {
-		let mut options = matrix_sdk::room::MessagesOptions::backward();
-		options.limit = js_int::uint!(10000);
-		let messages = joined_room.messages(options).await?;
+#[actix_web::main]
+async fn main() -> std::io::Result<()> {
+	HttpServer::new(|| App::new()
+		.route("/", web::get().to(root))
+		.route("/style.css", web::get().to(style))
+	).bind(("127.0.0.1", 8080))?.run().await
+}
+
+async fn style(_req: HttpRequest) -> impl Responder {
+	HttpResponse::Ok().body(include_str!("./style.css"))
+}
+
+async fn root(_req: HttpRequest) -> impl Responder {
+	if let Some(messages) = messages().await {
 		let mut buffer = Vec::new();
 		write_leading(&mut buffer);
-		for timeline_event in messages.chunk.iter() {
-			if let Ok(
-				AnyTimelineEvent::MessageLike(
-					AnyMessageLikeEvent::RoomMessage(
-						MessageLikeEvent::Original(message)
-					)
-				)
-			) = timeline_event.event.deserialize() {
-				write_message(message.content.msgtype, &mut buffer);
-				write_time(message.origin_server_ts, &mut buffer);
-			}
+		for message in messages {
+			write_message(&message.content.msgtype, &mut buffer);
+			write_time(message.origin_server_ts, &mut buffer);
 		}
 		write_trailing(&mut buffer);
-		std::fs::write("./feed.html", buffer).expect("Unable to write file");
-	} else { panic!("Room not found!"); }
-	client.logout().await?;
-	anyhow::Ok(())
+		if let Ok(string) = String::from_utf8(buffer) { 
+			return HttpResponse::Ok().body(string);
+		}
+	}
+	HttpResponse::Ok().body("Error")
+}
+
+async fn messages() -> Option<Vec<OriginalMessageLikeEvent<RoomMessageEventContent>>> {
+	let bot = user_id!("@bot:n0g.rip");
+	let client = matrix_sdk::Client::builder()
+		.server_name(bot.server_name()).build().await.unwrap();
+	client.login_username(bot, "sorzon-korqi7-sekWug").send().await.unwrap();
+	client.sync_once(matrix_sdk::config::SyncSettings::default()).await.unwrap();
+	if let Some(joined_room) = client.get_joined_room(room_id!("!xLb6sbIQiWRiRuXt:n0g.rip")) {
+		return Some(
+			joined_room
+				.messages(matrix_sdk::room::MessagesOptions::backward())
+				.await.unwrap()
+				.chunk.iter()
+				.filter_map(|event| {
+					if let Ok(
+						AnyTimelineEvent::MessageLike(
+							AnyMessageLikeEvent::RoomMessage(
+								MessageLikeEvent::Original(content)
+							)
+						)
+					) = event.event.deserialize() {
+						Some(content)
+					} else { None }
+				})
+				.collect()
+		)
+	}
+	client.logout().await.unwrap();
+	None
 }
 
 fn write_leading(buffer: &mut Vec<u8>) {
 	write!(buffer,
-r#"
-<!DOCTYPE html>
+r#"<!DOCTYPE html>
 <html>
 <head>
 	<title>Feed</title>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="initial-scale=1">
-	<link rel="stylesheet" href="feed.css">
+	<link rel="stylesheet" href="style.css">
 </head>
 	<body>
 "#
@@ -68,11 +90,11 @@ r#"		<time>{}</time>
 	).unwrap();
 }
 
-fn write_message(message_type: MessageType, buffer: &mut Vec<u8>) {
+fn write_message(message_type: &MessageType, buffer: &mut Vec<u8>) {
 	let download_path: &str = "https://n0g.rip/_matrix/media/r0/download/n0g.rip/";
 	match message_type {
 		MessageType::Audio(audio) => {
-			if let MediaSource::Plain(uri) = audio.source {
+			if let MediaSource::Plain(uri) = &audio.source {
 				write!(buffer,
 r#"		<audio controls>
 			<source src="{}{}" type="{}">
@@ -80,18 +102,18 @@ r#"		<audio controls>
 "#,
 					download_path,
 					uri.media_id().unwrap(), 
-					audio.info.unwrap().mimetype.unwrap()
+					audio.clone().info.unwrap().mimetype.unwrap()
 				).unwrap();
 			}
 		}
 		MessageType::Image(image) => {
-			if let MediaSource::Plain(uri) = image.source {
+			if let MediaSource::Plain(uri) = &image.source {
 				write!(buffer,
 r#"		<img src="{}{}" type="{}">
 "#,
 					download_path,
 					uri.media_id().unwrap(),
-					image.info.unwrap().mimetype.unwrap()
+					image.clone().info.unwrap().mimetype.unwrap()
 				).unwrap();
 			}
 		}
@@ -104,7 +126,7 @@ r#"		<p>{}</p>
 		}
 		MessageType::Video(video) => {
 			if let Some(MediaSource::Plain(thumbnail_source)) = video.thumbnail_source() {
-				if let MediaSource::Plain(uri) = video.source {
+				if let MediaSource::Plain(uri) = &video.source {
 					write!(buffer,
 r#"		<video controls poster="{}{}">
 			<source src="{}{}" type="{}">
@@ -114,7 +136,7 @@ r#"		<video controls poster="{}{}">
 						thumbnail_source.media_id().unwrap(),
 						download_path,
 						uri.media_id().unwrap(), 
-						video.info.unwrap().mimetype.unwrap()
+						video.clone().info.unwrap().mimetype.unwrap()
 					).unwrap();
 				}
 			}
