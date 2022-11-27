@@ -35,8 +35,10 @@ async fn style(_req: HttpRequest) -> impl Responder {
 	HttpResponse::Ok().body(include_str!("./style.css"))
 }
 
-async fn rss(_req: HttpRequest) -> String {
-	include_str!("./feed.rss").to_string()
+async fn rss(_req: HttpRequest) -> HttpResponse {
+	HttpResponse::Ok()
+		.content_type(http::header::ContentType::xml())
+		.body(include_str!("./feed.rss").to_string())
 }
 
 async fn messages() -> Option<Vec<OriginalMessageLikeEvent<RoomMessageEventContent>>> {
@@ -78,6 +80,7 @@ r#"<!DOCTYPE html>
 <head>
 	<title>Feed</title>
 	<meta charset="UTF-8">
+	<link rel="icon" type="image/png" href="../favicon.png">
 	<meta name="viewport" content="initial-scale=1">
 	<link rel="stylesheet" href="/feed/style">
 </head>
