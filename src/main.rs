@@ -11,7 +11,7 @@ async fn main() -> std::io::Result<()> {
 	HttpServer::new(|| App::new()
 		.route("/feed", web::get().to(root))
 		.route("/feed/style", web::get().to(style))
-		.route("/feed/rss/", web::get().to(rss))
+		.route("/feed/rss", web::get().to(rss))
 	).bind(("127.0.0.1", 5002))?.run().await
 }
 
