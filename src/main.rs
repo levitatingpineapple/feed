@@ -11,7 +11,7 @@ async fn main() -> std::io::Result<()> {
 	HttpServer::new(|| App::new()
 		.route("/feed", web::get().to(root))
 		.route("/feed/style", web::get().to(style))
-		.route("/feed/rss", web::get().to(rss))
+		.route("/rss", web::get().to(rss))
 	).bind(("127.0.0.1", 5002))?.run().await
 }
 
@@ -38,7 +38,7 @@ async fn style(_req: HttpRequest) -> impl Responder {
 async fn rss(_req: HttpRequest) -> HttpResponse {
 	HttpResponse::Ok()
 		.content_type(http::header::ContentType::xml())
-		.body(include_str!("./feed.rss").to_string())
+		.body(include_str!("./test.rss").to_string())
 }
 
 async fn messages() -> Option<Vec<OriginalMessageLikeEvent<RoomMessageEventContent>>> {
