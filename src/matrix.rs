@@ -1,7 +1,6 @@
 use rss::*;
 use chrono::*;
 use matrix_sdk::{ruma::{*, events::{*,room::{message::{MessageType, RoomMessageEventContent}, MediaSource}}}};
-use tokio::time::sleep;
 type Message = OriginalMessageLikeEvent<RoomMessageEventContent>;
 
 async fn messages() -> Vec<Message> {

@@ -5,8 +5,6 @@ mod matrix;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-	matrix::test().await;
-
 	HttpServer::new(|| App::new()
 		.route("/feed", web::get().to(feed))
 		.route("/rss", web::get().to(rss))
