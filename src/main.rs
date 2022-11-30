@@ -113,7 +113,7 @@ async fn rss(data: web::Data<AppState<'_>>) -> HttpResponse {
 async fn messages(client: &Client) -> Vec<Message> {
 	let mut options = matrix_sdk::room::MessagesOptions::backward();
 	options.limit = uint!(100);
-	client.get_joined_room(room_id!("!xLb6sbIQiWRiRuXt:n0g.rip")).unwrap()
+	client.get_joined_room(room_id!("!bUtdRxQiBPeYOa3Z:n0g.rip")).unwrap()
 		.messages(options)
 		.await.unwrap()
 		.chunk.iter()
