@@ -1,65 +1,65 @@
 use actix_web::*;
 use handlebars::*;
-use html_string::*;
+use matrix_sdk::{Client, ruma::events::room::message::MessageType};
 use rss::*;
 use chrono::*;
-use matrix_sdk::{ruma::{*, events::{*,room::{message::{MessageType, RoomMessageEventContent}}}}, Client};
 
-type Message = OriginalMessageLikeEvent<RoomMessageEventContent>;
+pub mod html;
+use html::*;
 
-pub mod html_string;
+pub mod matrix;
+use matrix::*;
 
-struct AppState<'a> {
+pub mod message;
+
+struct AppState {
 	client: Client,
-	handlebars: Handlebars<'a>,
+	handlebars: Handlebars<'static>,
 }
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-	// Matrix
-	let bot = user_id!("@bot:n0g.rip");
-	let client = matrix_sdk::Client::builder()
-		.server_name(bot.server_name())
-		.build()
-		.await.unwrap();
-	client.login_username(bot, "sorzon-korqi7-sekWug").send()
-		.await.unwrap();
-	let client_sync = client.clone();
-	tokio::spawn(async move { 
-		client_sync.sync(matrix_sdk::config::SyncSettings::default()).await
-	});
-
-	// Templating
-	let mut handlebars = Handlebars::new();
-	handlebars.register_template_string("feed", include_str!("feed.html")).unwrap();
-
-	// Webserver
 	let data = web::Data::new(
-		AppState { client: client, handlebars: handlebars }
+		AppState { 
+			client: client().await,
+			handlebars: registry()
+		}
 	);
 	HttpServer::new(move || {
 		App::new()
 			.app_data(data.clone())
 			.route("/feed", web::get().to(feed))
 			.route("/rss", web::get().to(rss))
+			.route("/dm", web::get().to(dm))
+			.service(web::resource("/ws").route(web::get().to(ws)))
+			
 	})
 	.bind(("localhost", 5555))?
 	.run()
 	.await
 }
 
-async fn feed(data: web::Data<AppState<'_>>) -> HttpResponse {
+fn registry() -> Handlebars<'static> {
+	let mut registry = Handlebars::new();
+	registry.register_template_string(
+		"feed", 
+		include_str!("../static/feed.html")
+	).unwrap();
+	registry
+}
+
+async fn feed(data: web::Data<AppState>) -> HttpResponse {
 	#[derive(::serde::Serialize)]
 	struct Page { body: String }
 	HttpResponse::Ok().body(
 		data.handlebars.render(
 			"feed", 
 			&Page { 
-				body: messages(&data.client).await.iter().map(|m| { 
+				body: messages(&data.client, FEED).await.iter().map(|m| { 
 					format!(
 						"\t\t{}\n\t\t{}\n",
-						m.content.msgtype.to_html_string(),
-						m.origin_server_ts.to_html_string(),
+						m.content.msgtype.to_html(),
+						m.origin_server_ts.to_html(),
 					)
 				}).collect::<String>()
 			 }
@@ -67,7 +67,7 @@ async fn feed(data: web::Data<AppState<'_>>) -> HttpResponse {
 	)
 }
 
-async fn rss(data: web::Data<AppState<'_>>) -> HttpResponse {
+async fn rss(data: web::Data<AppState>) -> HttpResponse {
 	HttpResponse::Ok()
 		.content_type(http::header::ContentType::xml())
 		.body(
@@ -76,7 +76,7 @@ async fn rss(data: web::Data<AppState<'_>>) -> HttpResponse {
 			.link("http://n0g.rip".to_string())
 			.description("Feed".to_string())
 			.items(
-				messages(&data.client).await.iter().map(|m| {
+				messages(&data.client, FEED).await.iter().map(|m| {
 					let title = Some(match m.content.msgtype {
 						MessageType::Audio(_) => "Audio",
 						MessageType::Image(_) => "Image",
@@ -88,7 +88,7 @@ async fn rss(data: web::Data<AppState<'_>>) -> HttpResponse {
 						value: m.origin_server_ts.get().to_string(), 
 						permalink: false
 					});
-					let content = Some(m.content.clone().msgtype.to_html_string());
+					let content = Some(m.content.clone().msgtype.to_html());
 					let pub_date = Some(
 						DateTime::<Local>::from(
 							m.origin_server_ts
@@ -110,23 +110,12 @@ async fn rss(data: web::Data<AppState<'_>>) -> HttpResponse {
 		)
 }
 
-async fn messages(client: &Client) -> Vec<Message> {
-	let mut options = matrix_sdk::room::MessagesOptions::backward();
-	options.limit = uint!(100);
-	client.get_joined_room(room_id!("!bUtdRxQiBPeYOa3Z:n0g.rip")).unwrap()
-		.messages(options)
-		.await.unwrap()
-		.chunk.iter()
-		.filter_map(|timeline| {
-			if let Ok(
-				AnyTimelineEvent::MessageLike(
-					AnyMessageLikeEvent::RoomMessage(
-						MessageLikeEvent::Original(content)
-					)
-				)
-			) = timeline.event.deserialize() {
-				Some(content)
-			} else { None }
-		})
-		.collect()
+async fn dm() -> HttpResponse {
+	HttpResponse::Ok().body(include_str!("../static/dm.html"))
+}
+
+async fn ws(data: web::Data<AppState>, http_request: HttpRequest, stream: web::Payload) -> Result<HttpResponse, actix_web::Error> {
+	let (response, session, message_stream) = actix_ws::handle(&http_request, stream)?;
+	rt::spawn(message::handler(data.client.clone(), session, message_stream));
+	Ok(response)
 }

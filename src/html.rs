@@ -1,12 +1,12 @@
 use chrono::{Local, DateTime};
 use matrix_sdk::{ruma::{MilliSecondsSinceUnixEpoch, events::room::{message::MessageType, MediaSource}}, media::MediaEventContent};
 
-pub trait ToHtmlString { 
-	fn to_html_string(&self) -> String;
+pub trait ToHtml { 
+	fn to_html(&self) -> String;
 }
 
-impl ToHtmlString for MilliSecondsSinceUnixEpoch {
-	fn to_html_string(&self) -> String {
+impl ToHtml for MilliSecondsSinceUnixEpoch {
+	fn to_html(&self) -> String {
 		format!(
 			"<time>{}</time>", 
 			DateTime::<Local>::from(self.to_system_time().unwrap())
@@ -16,8 +16,8 @@ impl ToHtmlString for MilliSecondsSinceUnixEpoch {
 	}
 }
 
-impl ToHtmlString for MessageType {
-	fn to_html_string(&self) -> String {
+impl ToHtml for MessageType {
+	fn to_html(&self) -> String {
 		let download_path: &str = "https://n0g.rip/_matrix/media/r0/download/n0g.rip/";
 		match self {
 			MessageType::Audio(audio) => 

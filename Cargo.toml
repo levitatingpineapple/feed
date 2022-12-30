@@ -7,6 +7,8 @@ edition = "2021"
 
 [dependencies]
 actix-web = "4.2.1"
+actix-ws = "0.2.5"
+futures-util = { version = "0.3.17", default-features = false, features = ["std"] }
 chrono = "0.4.23"
 handlebars = "4.3.5"
 js_int = "0.2.2"
