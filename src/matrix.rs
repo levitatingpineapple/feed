@@ -1,6 +1,6 @@
 use matrix_sdk::{ruma::{*, events::{*,room::{message::{RoomMessageEventContent}}}}, Client, config::SyncSettings};
 
-type Message = OriginalMessageLikeEvent<RoomMessageEventContent>;
+pub type Message = OriginalMessageLikeEvent<RoomMessageEventContent>;
 
 pub const FEED: &str = "!bUtdRxQiBPeYOa3Z:n0g.rip";
 pub const LOBBY: &str = "!OV5DspdU2TK4dTAq:n0g.rip";
@@ -23,7 +23,7 @@ pub async fn client() -> matrix_sdk::Client {
 
 pub async fn messages(client: &Client, room: &str) -> Vec<Message> {
 	let mut options = matrix_sdk::room::MessagesOptions::backward();
-	options.limit = uint!(100);
+	options.limit = uint!(20);
 	client.get_joined_room(<&RoomId>::try_from(room).unwrap()).unwrap()
 		.messages(options)
 		.await.unwrap()

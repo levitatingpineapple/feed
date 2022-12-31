@@ -10,7 +10,7 @@ use html::*;
 pub mod matrix;
 use matrix::*;
 
-pub mod message;
+pub mod chat;
 
 struct AppState {
 	client: Client,
@@ -28,13 +28,13 @@ async fn main() -> std::io::Result<()> {
 	HttpServer::new(move || {
 		App::new()
 			.app_data(data.clone())
-			.route("/feed", web::get().to(feed))
+			.route("/", web::get().to(feed))
 			.route("/rss", web::get().to(rss))
 			.route("/dm", web::get().to(dm))
 			.service(web::resource("/ws").route(web::get().to(ws)))
 			
 	})
-	.bind(("localhost", 5555))?
+	.bind(("10.0.2.173", 5555))?
 	.run()
 	.await
 }
@@ -111,11 +111,21 @@ async fn rss(data: web::Data<AppState>) -> HttpResponse {
 }
 
 async fn dm() -> HttpResponse {
-	HttpResponse::Ok().body(include_str!("../static/dm.html"))
+	HttpResponse::Ok().body(include_str!("../static/chat.html"))
 }
 
-async fn ws(data: web::Data<AppState>, http_request: HttpRequest, stream: web::Payload) -> Result<HttpResponse, actix_web::Error> {
+async fn ws(
+	data: web::Data<AppState>, 
+	http_request: HttpRequest, 
+	stream: web::Payload
+) -> Result<HttpResponse, actix_web::Error> {
 	let (response, session, message_stream) = actix_ws::handle(&http_request, stream)?;
-	rt::spawn(message::handler(data.client.clone(), session, message_stream));
+	rt::spawn(
+		chat::handler(
+			data.client.clone(), 
+			session, 
+			message_stream
+		)
+	);
 	Ok(response)
 }

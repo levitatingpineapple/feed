@@ -44,6 +44,7 @@ pub async fn handler(
 			).await.unwrap();
 		};
 	}
+	session.text(":loaded").await.unwrap();
 
 	// Web socket
 	let mut last_heartbeat = Instant::now();
