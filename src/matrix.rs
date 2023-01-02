@@ -1,9 +1,8 @@
-use matrix_sdk::{ruma::{*, events::{*,room::{message::{RoomMessageEventContent}}}}, Client, config::SyncSettings};
+use matrix_sdk::{ruma::{*, events::{*,room::{message::{RoomMessageEventContent}}}}, Client, config::SyncSettings, room::Joined};
 
 pub type Message = OriginalMessageLikeEvent<RoomMessageEventContent>;
 
 pub const FEED: &str = "!bUtdRxQiBPeYOa3Z:n0g.rip";
-pub const LOBBY: &str = "!OV5DspdU2TK4dTAq:n0g.rip";
 
 pub async fn client() -> matrix_sdk::Client {
 	let bot = user_id!("@bot:n0g.rip");
@@ -21,10 +20,10 @@ pub async fn client() -> matrix_sdk::Client {
 	client
 }
 
-pub async fn messages(client: &Client, room: &str) -> Vec<Message> {
+pub async fn messages(client: &Client, joined: Option<Joined>) -> Vec<Message> {
 	let mut options = matrix_sdk::room::MessagesOptions::backward();
 	options.limit = uint!(20);
-	client.get_joined_room(<&RoomId>::try_from(room).unwrap()).unwrap()
+	joined.unwrap_or(client.get_joined_room(room_id!("!bUtdRxQiBPeYOa3Z:n0g.rip")).unwrap())
 		.messages(options)
 		.await.unwrap()
 		.chunk.iter()

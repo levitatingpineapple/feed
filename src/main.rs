@@ -1,7 +1,7 @@
-use actix_web::*;
+use actix_web::{*, http::header::HeaderValue, cookie::Cookie};
 use handlebars::*;
-use matrix_sdk::{Client, ruma::events::room::message::MessageType};
-use rss::*;
+use matrix_sdk::{Client, ruma::{events::room::message::MessageType, RoomId}, room::Joined};
+use ::rss::*;
 use chrono::*;
 
 pub mod html;
@@ -28,45 +28,60 @@ async fn main() -> std::io::Result<()> {
 	HttpServer::new(move || {
 		App::new()
 			.app_data(data.clone())
-			.route("/", web::get().to(feed))
-			.route("/rss", web::get().to(rss))
-			.route("/dm", web::get().to(dm))
-			.service(web::resource("/ws").route(web::get().to(ws)))
-			
+			.service(feed)
+			.service(rss)
+			.service(dm)
+			.service(join)
+			.service(token)
 	})
-	.bind(("10.0.2.173", 5555))?
+	.bind(("10.0.0.247", 5555))?
 	.run()
 	.await
 }
 
-fn registry() -> Handlebars<'static> {
-	let mut registry = Handlebars::new();
-	registry.register_template_string(
-		"feed", 
-		include_str!("../static/feed.html")
-	).unwrap();
-	registry
-}
+#[get("/")]
+async fn feed(data: web::Data<AppState>, http_request: HttpRequest) -> HttpResponse {
 
-async fn feed(data: web::Data<AppState>) -> HttpResponse {
 	#[derive(::serde::Serialize)]
-	struct Page { body: String }
+	struct Page {
+		body: String,
+		button: String
+	}
+	
 	HttpResponse::Ok().body(
 		data.handlebars.render(
 			"feed", 
-			&Page { 
-				body: messages(&data.client, FEED).await.iter().map(|m| { 
+			&Page {
+				body: messages(&data.client, None).await.iter().map(|m| { 
 					format!(
-						"\t\t{}\n\t\t{}\n",
+						"\t\t\t{}\n\t\t\t{}\n",
 						m.content.msgtype.to_html(),
 						m.origin_server_ts.to_html(),
 					)
-				}).collect::<String>()
-			 }
+				}).collect::<String>(),
+				button: if http_request.get_joined(data.client.clone()).is_some() {
+					include_str!("../static/button.html").to_string()
+				} else {
+					String::new()
+				}
+			}
 		).unwrap()
 	)
 }
 
+#[get("/{token}")]
+async fn token(data: web::Data<AppState>, path: web::Path<String>) -> HttpResponse {
+	let mut redirect = HttpResponse::TemporaryRedirect();
+	if let Ok(room_id) = <&RoomId>::try_from(format!("!{}:n0g.rip", path.clone()).as_str()) {
+		if data.client.get_joined_room(room_id).is_some() {
+			redirect.cookie(Cookie::build("token", path.clone()).finish());
+		}
+	};
+	redirect.append_header(("location", "/"));
+	redirect.finish()
+}
+
+#[get("/rss")]
 async fn rss(data: web::Data<AppState>) -> HttpResponse {
 	HttpResponse::Ok()
 		.content_type(http::header::ContentType::xml())
@@ -76,7 +91,7 @@ async fn rss(data: web::Data<AppState>) -> HttpResponse {
 			.link("http://n0g.rip".to_string())
 			.description("Feed".to_string())
 			.items(
-				messages(&data.client, FEED).await.iter().map(|m| {
+				messages(&data.client, None).await.iter().map(|m| {
 					let title = Some(match m.content.msgtype {
 						MessageType::Audio(_) => "Audio",
 						MessageType::Image(_) => "Image",
@@ -110,22 +125,79 @@ async fn rss(data: web::Data<AppState>) -> HttpResponse {
 		)
 }
 
-async fn dm() -> HttpResponse {
-	HttpResponse::Ok().body(include_str!("../static/chat.html"))
-}
-
-async fn ws(
+#[get("/dm")]
+async fn dm(
 	data: web::Data<AppState>, 
 	http_request: HttpRequest, 
-	stream: web::Payload
+	payload: web::Payload
 ) -> Result<HttpResponse, actix_web::Error> {
-	let (response, session, message_stream) = actix_ws::handle(&http_request, stream)?;
-	rt::spawn(
-		chat::handler(
-			data.client.clone(), 
-			session, 
-			message_stream
+	match http_request.get_joined(data.client.clone()) {
+		Some(joined) => if http_request.headers().get("upgrade") != Some(
+			&HeaderValue::from_str("websocket").unwrap()
+		) { 
+			Ok(HttpResponse::Ok().body(include_str!("../static/chat.html")))
+		} else {
+			let (response, session, message_stream) = actix_ws::handle(&http_request, payload)?;
+			rt::spawn(
+				chat::handler(
+					data.client.clone(),
+					joined,
+					session, 
+					message_stream
+				)
+			);
+			Ok(response)
+		}
+		None => Ok(HttpResponse::TemporaryRedirect()
+			.append_header(("location", "/"))
+			.finish())
+	}
+}
+
+#[derive(::serde::Deserialize, Debug)]
+struct FormData {
+	username: String,
+	password: String,
+	confirm: String,
+}
+
+#[post("/dm")]
+async fn join(
+	form: web::Form<FormData>,
+) -> Result<HttpResponse, actix_web::Error> {
+	println!("{:?}", form.into_inner());
+
+	
+	todo!();
+}
+
+// Helpers
+fn registry() -> Handlebars<'static> {
+	let mut registry = Handlebars::new();
+	registry.register_template_string(
+		"feed", 
+		include_str!("../static/feed.html")
+	).unwrap();
+	registry
+}
+trait GetJoined { 
+	fn get_joined(&self, client: Client) -> Option<Joined>;
+}
+
+impl GetJoined for String {
+	fn get_joined(&self, client: Client) -> Option<Joined> {
+		client.get_joined_room(
+			<&RoomId>::try_from(
+				format!("!{}:n0g.rip", self,
+			).as_str()).ok()?
 		)
-	);
-	Ok(response)
+	}
+}
+
+impl GetJoined for HttpRequest {
+	fn get_joined(&self, client: Client) -> Option<Joined> {
+		self.cookie("token")
+			.and_then(|c| Some(c.value().to_string()))?
+			.get_joined(client)
+	}
 }

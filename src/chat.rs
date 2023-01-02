@@ -1,21 +1,19 @@
 use std::{time::{Duration, Instant}};
 use actix_ws::Message;
 use futures_util::{future::{self, Either}, StreamExt as _,};
-use matrix_sdk::{ruma::{events::room::message::{MessageType, OriginalSyncRoomMessageEvent, RoomMessageEventContent}, RoomId}, room::Room, Client, event_handler::Ctx};
+use matrix_sdk::{ruma::{events::room::message::{MessageType, OriginalSyncRoomMessageEvent, RoomMessageEventContent}}, room::{Room, Joined}, Client, event_handler::Ctx};
 use tokio::{pin, time::interval};
 
 use crate::matrix::*;
 
 pub async fn handler(
 	client: Client,
+	joined: Joined, 
 	mut session: actix_ws::Session,
 	mut message_stream: actix_ws::MessageStream,
-) {	
-	let room = client.get_joined_room(
-		<&RoomId>::try_from(LOBBY).unwrap()
-	).unwrap();
+) {
 	client.add_event_handler_context(session.clone());
-	let handle = room.add_event_handler(|
+	let handle = joined.add_event_handler(|
 		event: OriginalSyncRoomMessageEvent, 
 		_room: Room, 
 		session: Ctx<actix_ws::Session>
@@ -33,7 +31,7 @@ pub async fn handler(
 		};
 	});
 	
-	for event in messages(&client, LOBBY).await.iter().rev() {
+	for event in messages(&client, Some(joined.clone())).await.iter().rev() {
 		if let MessageType::Text(text) = &event.content.msgtype {
 			session.text(
 				format!(
@@ -57,7 +55,7 @@ pub async fn handler(
 				println!("msg: {:?}", msg);
 				match msg {
 					Message::Text(text) => {
-						room.send(RoomMessageEventContent::text_plain(text), None).await.unwrap();
+						joined.send(RoomMessageEventContent::text_plain(text), None).await.unwrap();
 					}
 					Message::Binary(bin) => {
 						session.binary(bin).await.unwrap();
