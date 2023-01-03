@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Lobby</title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<link rel="icon" type="image/png" href="https://n0g.rip/favicon.png">
+		<style>
+			:root {
+				--foreground: #FFFFFF;
+				--background: #121212;
+				--background-secondary: #2C2C2C;
+				--background-emphasis: #00345a;
+			}
+			body {
+				margin: 0px;
+				margin-top: 40px;
+				color: var(--foreground);
+				font-family: sans-serif;
+				background-color: var(--background);
+			}
+			div {
+				display: flex;
+				align-items: center;
+				flex-direction: column;
+				justify-content: center;
+			}
+			button, input, p {
+				border: none;
+				border-radius: 8px;
+				background-color: var(--background-secondary);
+				box-shadow: 0px 8px 32px black, inset 0 0 4px #FFFFFF08;
+				color: var(--foreground);
+				line-height: 24px;
+				font-size: 16px;
+				font-family: sans-serif;
+				padding: 8px 12px;
+				margin: 8px;
+			}
+			p {
+				width: fit-content;
+				max-width: 80vw;
+				padding: 4px 8px;
+			}
+			button {
+				font-weight: 500;
+				font-size: 18px;
+				background-color: var(--background-emphasis);
+			}
+			input {
+				min-width: 240px;
+			}
+			input:focus {
+				outline: none;
+			}
+			.me { 
+				align-self: flex-end;
+				background-color: var(--background-emphasis);
+			}
+			.you {
+				 align-self: flex-start;
+			}
+			#modal {
+				display: none;
+				position: fixed;
+				z-index: 1;
+				top: 0px;
+				left: 0px;
+				right: 0px;
+				bottom: 0px;
+				background-color: #12121280;
+				backdrop-filter: blur(32px);
+				-webkit-backdrop-filter: blur(32px);
+			}
+			#modal > form > div > input:valid { 
+				background-color: var(--background-emphasis);
+			}
+			#header {
+				top: 0px;
+				left: 0px;
+				right: 0px;
+				overflow: hidden;
+				position: fixed;
+				z-index: 1;
+				flex-direction: row;
+				justify-content: space-between;
+				background-color: var(--background);
+				border-bottom: 1px solid;
+				border-color: var(--background-secondary);
+			}
+			#back {
+				background-color: var(--background-secondary);
+			}
+			#messages {
+				margin-top: 128px;
+				opacity: 0;
+			}
+			#messages.opaque {
+				opacity: 1;
+			}
+			#dummy { 
+				opacity: 0; 
+			}
+			#compose {
+				position: fixed;
+				left: 0px;
+				right: 0px;
+				bottom: 0px;
+			}
+		</style>
+	</head>
+	<body>
+		<!-- Chat -->
+		<div id="header">
+			<button id="back">
+					<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 16" width="12" height="16">
+						<path d="M6,4 2,9 L6,14" stroke="white" stroke-width="3" stroke-linecap="round" fill="none"/>
+					</svg>
+					Feed
+			</button>
+			<h3>Lobby</h3>
+			<button id="signup">Signup</button>
+		</div>
+		<div id="messages">
+			<h2>Welcome to the Lobby!</h3>
+			<p>
+				Here you can join the server or send me a quick message.<br>
+				No E2E encryption but messages are persistant.
+			</p>
+		</div>
+		<input id="dummy", disabled="true">
+		<form id="composeForm">
+			<input type="text" id="compose" placeholder="Message...", disabled="true"/>
+		</form>
+		
+		<!-- Signup -->
+		<div id="modal">
+			<form method="POST">
+				<div>
+					<input
+						type="text"
+						placeholder="username"
+						id="username"
+						name="username"
+						autocapitalize="none"
+						spellcheck="false"
+						pattern="^[0-9a-z]{4,16}$"
+						required
+					/>
+					<input
+						type="password"
+						placeholder="password" 
+						id="password"
+						name="password"
+						pattern="^[^'\x22\s]{8,64}$"
+						required
+					/>
+					<input
+						type="password"
+						placeholder="password confirm"
+						id="passwordConfirm"
+						name="confirm"
+						required
+					/>
+					<button>Signup</button>
+				</div>
+			</form>
+		</div>
+		<script>
+			const socket = new WebSocket(
+				window.location.toString().replace("http", "ws")
+			)
+			
+			socket.onmessage = (event) => {
+				if (event.data == ":loaded") {
+					messages.style.opacity = "1"
+					compose.disabled = false
+				} else {
+					messages.innerHTML += event.data
+					dummy.scrollIntoView()
+				}
+			}
+			
+			signup.onclick = () => {
+				modal.style.display = "flex"
+			}
+			
+			back.onclick = () => {
+				window.location.href = '/';
+			}
+			
+			compose.onfocus = () => {
+				dummy.scrollIntoView()
+			}
+			
+			composeForm.onsubmit = (event) => {
+				event.preventDefault()
+				if (compose.value.length != 0) {
+					socket.send(compose.value)
+					compose.value = ""
+				}
+			}
+			
+			modal.onclick = (event) => {
+				if (event.target == modal) { 
+					modal.style.display = "none"
+				}
+			}
+			
+			username.oninput = (event) => {
+				event.target.setCustomValidity("")
+			}
+			
+			username.oninvalid = (event) => {
+				event.target.setCustomValidity(
+					"Username should be 4 to 16 characters long.\nLower case letters and numbers."
+				)
+			}
+			
+			password.oninput = (event) => {
+				event.target.setCustomValidity("")
+				passwordConfirm.setCustomValidity(
+					(password.value != passwordConfirm.value)
+						? "Password must match"
+						: ""
+				)
+			}
+			
+			password.oninvalid = (event) => {
+				event.target.setCustomValidity(
+					"Password should be 8 to 64 characters long.\
+					No quotes or whitespace."
+				)
+			}
+			
+			passwordConfirm.oninput = (event) => {
+				event.target.setCustomValidity(
+					(password.value != passwordConfirm.value)
+						? "Password must match"
+						: ""
+				)
+			}
+			
+			compose.focus()
+		</script>
+	</body>
+</html>
