@@ -16,3 +16,9 @@ matrix-sdk = "0.6.2"
 rss = "2.0.1"
 serde = "1.0.148"
 tokio = { version = "1.20.1", features = ["macros", "rt-multi-thread"] }
+
+# Crypto
+awc = "3.0.1"
+hex = "0.4.3"
+sha1 = "0.10.5"
+hmac = "0.12.1"

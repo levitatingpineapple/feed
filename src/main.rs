@@ -41,7 +41,6 @@ async fn main() -> std::io::Result<()> {
 
 #[get("/")]
 async fn feed(data: web::Data<AppState>, http_request: HttpRequest) -> HttpResponse {
-
 	#[derive(::serde::Serialize)]
 	struct Page {
 		body: String,
@@ -59,7 +58,7 @@ async fn feed(data: web::Data<AppState>, http_request: HttpRequest) -> HttpRespo
 						m.origin_server_ts.to_html(),
 					)
 				}).collect::<String>(),
-				button: if http_request.get_joined(data.client.clone()).is_some() {
+				button: if http_request.get_joined(&data.client).is_some() {
 					include_str!("../static/button.html").to_string()
 				} else {
 					String::new()
@@ -67,18 +66,6 @@ async fn feed(data: web::Data<AppState>, http_request: HttpRequest) -> HttpRespo
 			}
 		).unwrap()
 	)
-}
-
-#[get("/{token}")]
-async fn token(data: web::Data<AppState>, path: web::Path<String>) -> HttpResponse {
-	let mut redirect = HttpResponse::TemporaryRedirect();
-	if let Ok(room_id) = <&RoomId>::try_from(format!("!{}:n0g.rip", path.clone()).as_str()) {
-		if data.client.get_joined_room(room_id).is_some() {
-			redirect.cookie(Cookie::build("token", path.clone()).finish());
-		}
-	};
-	redirect.append_header(("location", "/"));
-	redirect.finish()
 }
 
 #[get("/rss")]
@@ -131,7 +118,7 @@ async fn dm(
 	http_request: HttpRequest, 
 	payload: web::Payload
 ) -> Result<HttpResponse, actix_web::Error> {
-	match http_request.get_joined(data.client.clone()) {
+	match http_request.get_joined(&data.client) {
 		Some(joined) => if http_request.headers().get("upgrade") != Some(
 			&HeaderValue::from_str("websocket").unwrap()
 		) { 
@@ -154,6 +141,17 @@ async fn dm(
 	}
 }
 
+#[get("/{token}")]
+async fn token(data: web::Data<AppState>, path: web::Path<String>) -> HttpResponse {
+	let mut redirect = HttpResponse::TemporaryRedirect();
+	if let Some(joined) = path.into_inner().get_joined(&data.client) {
+		redirect.cookie(Cookie::build("token", joined.room_id().localpart()).finish());
+	}
+	redirect
+		.append_header(("location", "/"))
+		.finish()
+}
+
 #[derive(::serde::Deserialize, Debug)]
 struct FormData {
 	username: String,
@@ -162,13 +160,24 @@ struct FormData {
 }
 
 #[post("/dm")]
-async fn join(
-	form: web::Form<FormData>,
-) -> Result<HttpResponse, actix_web::Error> {
+async fn join(form: web::Form<FormData>) -> HttpResponse {
 	println!("{:?}", form.into_inner());
-
 	
-	todo!();
+	
+	#[derive(::serde::Deserialize, Debug)]
+	struct NonceResponse {
+		nonce: String
+	}
+	
+	let _client = awc::Client::default()
+		.get("localhost:8008/_synapse/admin/v1/register")
+		.send()
+		.await.unwrap().body();
+	
+	
+	HttpResponse::TemporaryRedirect()
+		.append_header(("location", "https://chat.n0g.rip"))
+		.finish()
 }
 
 // Helpers
@@ -181,11 +190,11 @@ fn registry() -> Handlebars<'static> {
 	registry
 }
 trait GetJoined { 
-	fn get_joined(&self, client: Client) -> Option<Joined>;
+	fn get_joined(&self, client: &Client) -> Option<Joined>;
 }
 
 impl GetJoined for String {
-	fn get_joined(&self, client: Client) -> Option<Joined> {
+	fn get_joined(&self, client: &Client) -> Option<Joined> {
 		client.get_joined_room(
 			<&RoomId>::try_from(
 				format!("!{}:n0g.rip", self,
@@ -195,7 +204,7 @@ impl GetJoined for String {
 }
 
 impl GetJoined for HttpRequest {
-	fn get_joined(&self, client: Client) -> Option<Joined> {
+	fn get_joined(&self, client: &Client) -> Option<Joined> {
 		self.cookie("token")
 			.and_then(|c| Some(c.value().to_string()))?
 			.get_joined(client)
