@@ -6,10 +6,17 @@
 		<meta name="viewport" content="width=device-width, initial-scale=1.0">
 		<link rel="icon" type="image/png" href="https://n0g.rip/favicon.png">
 		<style>
+			:root {
+				--foreground: #FFFFFF;
+				--foreground-secondary: #808080;
+				--background: #121212;
+				--background-secondary: #2C2C2C;
+				--background-emphasis: #00345a;
+			}
 			body {
 				color: white;
 				font-family: sans-serif;
-				background-color: #121212;
+				background-color: var(--background);
 				margin: 0px;
 			}
 			div {
@@ -26,7 +33,7 @@
 			}
 			p {
 				box-sizing: border-box;
-				background-color: #303030;
+				background-color: var(--background-secondary);
 				line-height: 1.4em;
 				padding: 16px;
 				margin: 0px;
@@ -34,7 +41,7 @@
 			time {
 				height: 14px;
 				font-size: medium;
-				color: #808080;
+				color: var(--foreground-secondary);
 				margin-top: 4px;
 				margin-bottom: 16px;
 				z-index: 1;
