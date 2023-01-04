@@ -40,3 +40,26 @@ pub async fn messages(client: &Client, joined: Option<Joined>) -> Vec<Message> {
 		})
 		.collect()
 }
+
+pub trait GetJoined { 
+	fn get_joined(&self, client: &Client) -> Option<Joined>;
+}
+
+impl GetJoined for String {
+	fn get_joined(&self, client: &Client) -> Option<Joined> {
+		client.get_joined_room(
+			<&RoomId>::try_from(
+				format!("!{}:n0g.rip", self,
+			).as_str()).ok()?
+		)
+	}
+}
+
+impl GetJoined for actix_web::HttpRequest {
+	fn get_joined(&self, client: &Client) -> Option<Joined> {
+		self.cookie("token")
+			.and_then(|c| Some(c.value().to_string()))?
+			.get_joined(client)
+	}
+}
+

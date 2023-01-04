@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Lobby</title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<link rel="icon" type="image/png" href="https://n0g.rip/favicon.png">
+		<style>
+			:root {
+				--foreground: #FFFFFF;
+				--background: #121212;
+				--background-secondary: #2C2C2C;
+				--background-emphasis: #00345a;
+			}
+			body {
+				color: var(--foreground);
+				font-family: sans-serif;
+				background-color: var(--background);
+			}
+			div {
+				height: 100vh;
+				display: flex;
+				align-items: center;
+				flex-direction: column;
+				justify-content: center;
+			}
+			button, input {
+				border: none;
+				border-radius: 8px;
+				background-color: var(--background-secondary);
+				box-shadow: 0px 8px 32px black, inset 0 0 4px #FFFFFF08;
+				color: var(--foreground);
+				line-height: 24px;
+				font-size: 16px;
+				font-family: sans-serif;
+				padding: 8px 12px;
+				margin: 8px;
+			}
+			button {
+				font-weight: 500;
+				font-size: 18px;
+				background-color: var(--background-emphasis);
+			}
+			input {
+				min-width: 240px;
+			}
+			input:valid { 
+				background-color: var(--background-emphasis);
+			}
+		</style>
+	</head>
+	<body>
+		<div>
+		<form method="POST">
+				<div>
+				<input
+					type="text"
+					placeholder="username"
+					id="username"
+					name="username"
+					autocapitalize="none"
+					spellcheck="false"
+					pattern="^[0-9a-z]{4,16}$"
+					required
+				/>
+				<input
+					type="password"
+					placeholder="password" 
+					id="password"
+					name="password"
+					pattern="^[^'\x22\s]{8,64}$"
+					required
+				/>
+				<input
+					type="password"
+					placeholder="password confirm"
+					id="passwordConfirm"
+					name="confirm"
+					required
+				/>
+				<button>Signup</button>
+				</div>
+		</form>
+		</div>
+		<script>
+			username.oninput = (event) => {
+				event.target.setCustomValidity("")
+			}
+			
+			username.oninvalid = (event) => {
+				event.target.setCustomValidity(
+					"Username should be 4 to 16 characters long.\nLower case letters and numbers."
+				)
+			}
+			
+			password.oninput = (event) => {
+				event.target.setCustomValidity("")
+				passwordConfirm.setCustomValidity(
+					(password.value != passwordConfirm.value)
+						? "Password must match"
+						: ""
+				)
+			}
+			
+			password.oninvalid = (event) => {
+				event.target.setCustomValidity(
+					"Password should be 8 to 64 characters long.\
+					No quotes or whitespace."
+				)
+			}
+			
+			passwordConfirm.oninput = (event) => {
+				event.target.setCustomValidity(
+					(password.value != passwordConfirm.value)
+						? "Password must match"
+						: ""
+				)
+			}
+		</script>
+	</body>
+</html>
