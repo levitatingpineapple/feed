@@ -1474,6 +1474,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "include_dir"
+version = "0.7.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "18762faeff7122e89e0857b02f7ce6fcc0d101d5e9ad2ad7846cc01d61b7f19e"
+dependencies = [
+ "include_dir_macros",
+]
+
+[[package]]
+name = "include_dir_macros"
+version = "0.7.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b139284b5cf57ecfa712bcc66950bb635b31aff41c188e8a4cfc758eca374a3f"
+dependencies = [
+ "proc-macro2",
+ "quote",
+]
+
+[[package]]
 name = "indexed_db_futures"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1833,27 +1852,6 @@ dependencies = [
  "sha2 0.10.6",
  "thiserror",
  "zeroize",
-]
-
-[[package]]
-name = "matrix_static"
-version = "0.1.0"
-dependencies = [
- "actix-web",
- "actix-ws",
- "awc",
- "chrono",
- "futures-util",
- "handlebars",
- "hex",
- "hmac",
- "js_int",
- "matrix-sdk",
- "rss",
- "serde",
- "serde_json",
- "sha1",
- "tokio",
 ]
 
 [[package]]
@@ -2720,6 +2718,28 @@ name = "smallvec"
 version = "1.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a507befe795404456341dfab10cef66ead4c041f62b8b11bbb92bffe5d0953e0"
+
+[[package]]
+name = "social"
+version = "0.1.0"
+dependencies = [
+ "actix-web",
+ "actix-ws",
+ "awc",
+ "chrono",
+ "futures-util",
+ "handlebars",
+ "hex",
+ "hmac",
+ "include_dir",
+ "js_int",
+ "matrix-sdk",
+ "rss",
+ "serde",
+ "serde_json",
+ "sha1",
+ "tokio",
+]
 
 [[package]]
 name = "socket2"

@@ -4,13 +4,13 @@
 		<title>Lobby</title>
 		<meta charset="utf-8">
 		<meta name="viewport" content="width=device-width, initial-scale=1.0">
-		<link rel="icon" type="image/png" href="https://n0g.rip/favicon.png">
+		<link rel="icon" type="image/png" href="/favicon.png">
 		<style>
 			:root {
 				--foreground: #FFFFFF;
 				--background: #121212;
 				--background-secondary: #2C2C2C;
-				--background-emphasis: #00345a;
+				--background-emphasis: #2a4fbd;
 			}
 			body {
 				margin: 0px;
@@ -25,6 +25,13 @@
 				flex-direction: column;
 				justify-content: center;
 			}
+			h1, h2, h3 {
+				margin: 8px;
+			}
+			svg {
+				filter: drop-shadow(0px 4px 32px red);
+				vertical-align: middle;
+			}
 			button, input, p {
 				border: none;
 				border-radius: 8px;
@@ -37,13 +44,7 @@
 				padding: 8px 12px;
 				margin: 8px;
 			}
-			p {
-				width: fit-content;
-				max-width: 80vw;
-				padding: 4px 8px;
-			}
 			button {
-				font-weight: 500;
 				font-size: 18px;
 				background-color: var(--background-emphasis);
 			}
@@ -52,6 +53,11 @@
 			}
 			input:focus {
 				outline: none;
+			}
+			p {
+				width: fit-content;
+				max-width: 80vw;
+				padding: 4px 8px;
 			}
 			.me { 
 				align-self: flex-end;
@@ -104,10 +110,16 @@
 				opacity: 0; 
 			}
 			#compose {
+				min-width: 100px;
 				position: fixed;
 				left: 0px;
-				right: 0px;
+				right: 48px;
 				bottom: 0px;
+			}
+			#commit {
+				position: fixed;
+				bottom: 0px;
+				right: 0px;
 			}
 		</style>
 	</head>
@@ -115,24 +127,38 @@
 		<!-- Chat -->
 		<div id="header">
 			<button id="back">
-					<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 16" width="12" height="16">
-						<path d="M6,4 2,9 L6,14" stroke="white" stroke-width="3" stroke-linecap="round" fill="none"/>
-					</svg>
-					Feed
+				<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 16" width="12" height="18">
+					<path 
+						d="M6,1 2,6 L6,11"
+						stroke="white" 
+						stroke-width="3" 
+						stroke-linecap="round" 
+						fill="none"
+					/>
+				</svg>
+				Feed
 			</button>
 			<h3>Lobby</h3>
 			<button id="signup">Signup</button>
 		</div>
 		<div id="messages">
-			<h2>Welcome to the Lobby!</h3>
-			<p>
-				Here you can join the server or send me a quick message.<br>
-				No E2E encryption but messages are persistant.
-			</p>
+			{{{greeting}}}
+			{{{topic}}}
 		</div>
 		<input id="dummy", disabled="true">
 		<form id="composeForm">
 			<input type="text" id="compose" placeholder="Message...", disabled="true"/>
+			<button id="commit">
+				<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="16" height="16">
+					<path 
+						d="M4,2 14,8 L4,14 L6,8 Z" 
+						stroke="white" stroke-width="3" 
+						stroke-linecap="round" 
+						stroke-linejoin="round" 
+						fill="white"
+					/>
+				</svg>
+			</button>
 		</form>
 		
 		<!-- Signup -->
