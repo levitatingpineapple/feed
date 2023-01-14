@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 	<head>
-		<title>Lobby</title>
+		<title>Chat</title>
 		<meta charset="utf-8">
 		<meta name="viewport" content="width=device-width, initial-scale=1.0">
 		<link rel="icon" type="image/png" href="/favicon.png">
@@ -76,25 +76,32 @@
 				left: 0px;
 				right: 0px;
 				bottom: 0px;
-				background-color: #12121280;
-				backdrop-filter: blur(32px);
-				-webkit-backdrop-filter: blur(32px);
 			}
 			#modal > form > div > input:valid { 
 				background-color: var(--background-emphasis);
 			}
 			#header {
 				top: 0px;
+				justify-content: space-between;
+				border-bottom: 1px solid;
+			}
+			#footer {
+				bottom: 0px;
+				border-top: 1px solid;
+			}
+			#header, #footer {
 				left: 0px;
 				right: 0px;
+				z-index: 1;
 				overflow: hidden;
 				position: fixed;
-				z-index: 1;
 				flex-direction: row;
-				justify-content: space-between;
-				background-color: var(--background);
-				border-bottom: 1px solid;
 				border-color: var(--background-secondary);
+			}
+			#modal, #footer, #header {
+				background-color: #12121280;
+				backdrop-filter: blur(32px);
+				-webkit-backdrop-filter: blur(32px);
 			}
 			#back {
 				background-color: var(--background-secondary);
@@ -103,28 +110,20 @@
 				margin-top: 128px;
 				opacity: 0;
 			}
-			#messages.opaque {
-				opacity: 1;
-			}
 			#dummy { 
 				opacity: 0; 
 			}
 			#compose {
-				min-width: 100px;
-				position: fixed;
-				left: 0px;
-				right: 48px;
-				bottom: 0px;
+				flex-grow: 1;
+				margin-right: 0px;
+				min-width: 0px;
 			}
 			#commit {
-				position: fixed;
-				bottom: 0px;
-				right: 0px;
+				margin: 8px;
 			}
 		</style>
 	</head>
 	<body>
-		<!-- Chat -->
 		<div id="header">
 			<button id="back">
 				<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 16" width="12" height="18">
@@ -138,7 +137,7 @@
 				</svg>
 				Feed
 			</button>
-			<h3>Lobby</h3>
+			<h3>Chat</h3>
 			<button id="signup">Signup</button>
 		</div>
 		<div id="messages">
@@ -147,7 +146,8 @@
 		</div>
 		<input id="dummy", disabled="true">
 		<form id="composeForm">
-			<input type="text" id="compose" placeholder="Message...", disabled="true"/>
+		<div id="footer">
+			<input type="text" id="compose" placeholder="Message..." disabled="true"/>
 			<button id="commit">
 				<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="16" height="16">
 					<path 
@@ -159,9 +159,9 @@
 					/>
 				</svg>
 			</button>
+		</div>
 		</form>
 		
-		<!-- Signup -->
 		<div id="modal">
 			<form method="POST">
 				<div>

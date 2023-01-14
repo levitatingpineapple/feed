@@ -59,7 +59,7 @@ impl ExternalForm {
 		}
 	}
 	
-	pub async fn register(&self) {
+	pub async fn register(&self) -> String {
 		if !self.is_valid() { panic!("Invalid Form") }
 		let client = awc::Client::default();
 		let nonce = self.nonce(&client).await;
@@ -71,6 +71,9 @@ impl ExternalForm {
 					self.mac(nonce).await
 				).await
 			).await;
-		println!("{:?}", response);
+		match response {
+			Ok(response) => format!("Registration response:\n{:#?}", response).to_string(),
+			Err(error) => error.to_string()
+		}
 	}
 }

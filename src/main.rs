@@ -1,4 +1,9 @@
-use actix_web::{http::{header::HeaderValue, self}, cookie::Cookie, web::{Data, Payload, Path, Form}, HttpServer, App, HttpRequest, HttpResponse, get, rt, post};
+use actix_web::{
+	http::{header::HeaderValue, self}, 
+	cookie::Cookie, 
+	web::{Data, Payload, Path, Form}, 
+	HttpServer, App, HttpRequest, HttpResponse, get, rt, post
+};
 use handlebars::*;
 use include_dir::{include_dir, Dir};
 use matrix_sdk::{Client, ruma::events::room::message::MessageType, room::Joined};
@@ -132,6 +137,8 @@ async fn chat_get(
 		Some(joined) => if http_request.headers().get("upgrade") != Some(
 			&HeaderValue::from_str("websocket").unwrap()
 		) { 
+			// Serve chat html
+			tell(&data.client, format!("Chat served: \n{:?}", joined.name())).await;
 			#[derive(::serde::Serialize)]
 			struct Chat {
 				greeting: String,
@@ -153,6 +160,7 @@ async fn chat_get(
 				data.handlebars.render("chat", &Chat::new(joined)).unwrap()
 			))
 		} else {
+			// Connect to web-socket
 			let (response, session, message_stream) = actix_ws::handle(&http_request, payload)?;
 			rt::spawn(
 				chat::handler(
@@ -164,6 +172,7 @@ async fn chat_get(
 			);
 			Ok(response)
 		}
+		// Redirect back to feed if joined room not found
 		None => Ok(HttpResponse::TemporaryRedirect()
 			.append_header(("location", "/"))
 			.finish())
@@ -171,10 +180,12 @@ async fn chat_get(
 }
 
 #[post("/chat")]
-async fn chat_post(form: Form<ExternalForm>) -> HttpResponse {
-	form.register().await;
+async fn chat_post(data: Data<AppState>, form: Form<ExternalForm>) -> HttpResponse {
+	tell(&data.client, format!("Form received: \n{:?}", form)).await;
+	let registration_status = form.register().await;
+	tell(&data.client, registration_status).await;
 	HttpResponse::SeeOther()
-		.append_header(("location", "https://chat.n0g.rip"))
+		.append_header(("location", "https://chat.n0g.rip/#/login"))
 		.finish()
 }
 

@@ -2,8 +2,6 @@ use matrix_sdk::{ruma::{*, events::{*,room::{message::{RoomMessageEventContent}}
 
 pub type Message = OriginalMessageLikeEvent<RoomMessageEventContent>;
 
-pub const FEED: &str = "!bUtdRxQiBPeYOa3Z:n0g.rip";
-
 pub async fn client() -> matrix_sdk::Client {
 	let bot = user_id!("@bot:n0g.rip");
 	let client = matrix_sdk::Client::builder()
@@ -41,6 +39,12 @@ pub async fn messages(client: &Client, joined: Option<Joined>) -> Vec<Message> {
 		.collect()
 }
 
+pub async fn tell(client: &Client, message: String) {
+	client
+		.get_joined_room(room_id!("!VoYWevcmDdA2k9Dt:n0g.rip")).unwrap()
+		.send(RoomMessageEventContent::text_plain(message), None).await.unwrap();
+}
+
 pub trait GetJoined { 
 	fn get_joined(&self, client: &Client) -> Option<Joined>;
 }
@@ -62,4 +66,3 @@ impl GetJoined for actix_web::HttpRequest {
 			.get_joined(client)
 	}
 }
-
