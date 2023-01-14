@@ -36,9 +36,9 @@ async fn main() -> std::io::Result<()> {
 			.app_data(data.clone())
 			.service(feed)
 			.service(rss)
-			.service(lobby)
-			.service(join)
-			.service(token)
+			.service(chat_get)
+			.service(chat_post)
+			.service(parse)
 	})
 	.bind(("localhost", 5555))?
 	.run()
@@ -52,7 +52,6 @@ async fn feed(data: Data<AppState>, http_request: HttpRequest) -> HttpResponse {
 		body: String,
 		chat: String
 	}
-	
 	impl Feed {
 		fn new(messages: Vec<Message>, is_chat_visible: bool) -> Feed {
 			Feed {
@@ -68,7 +67,6 @@ async fn feed(data: Data<AppState>, http_request: HttpRequest) -> HttpResponse {
 			}
 		}
 	}
-	
 	HttpResponse::Ok().body(
 		data.handlebars.render(
 			"feed", 
@@ -124,14 +122,13 @@ async fn rss(data: Data<AppState>) -> HttpResponse {
 		)
 }
 
-#[get("/lobby")]
-async fn lobby(
+#[get("/chat")]
+async fn chat_get(
 	data: Data<AppState>, 
 	http_request: HttpRequest, 
 	payload: Payload
 ) -> Result<HttpResponse, actix_web::Error> {
 	match http_request.get_joined(&data.client) {
-		
 		Some(joined) => if http_request.headers().get("upgrade") != Some(
 			&HeaderValue::from_str("websocket").unwrap()
 		) { 
@@ -140,7 +137,6 @@ async fn lobby(
 				greeting: String,
 				topic: String
 			}
-			
 			impl Chat {
 				fn new(joined: Joined) -> Chat {
 					Chat {
@@ -153,12 +149,9 @@ async fn lobby(
 					}
 				}
 			}
-			
-			Ok(
-				HttpResponse::Ok().body(
-					data.handlebars.render("chat", &Chat::new(joined)).unwrap()
-				)
-			)
+			Ok(HttpResponse::Ok().body(
+				data.handlebars.render("chat", &Chat::new(joined)).unwrap()
+			))
 		} else {
 			let (response, session, message_stream) = actix_ws::handle(&http_request, payload)?;
 			rt::spawn(
@@ -171,37 +164,34 @@ async fn lobby(
 			);
 			Ok(response)
 		}
-		
-		
-		
 		None => Ok(HttpResponse::TemporaryRedirect()
 			.append_header(("location", "/"))
 			.finish())
 	}
 }
 
-#[get("/{token}")]
-async fn token(data: Data<AppState>, path: Path<String>) -> HttpResponse {
-	// Get resources
+#[post("/chat")]
+async fn chat_post(form: Form<ExternalForm>) -> HttpResponse {
+	form.register().await;
+	HttpResponse::SeeOther()
+		.append_header(("location", "https://chat.n0g.rip"))
+		.finish()
+}
+
+#[get("/{path}")]
+async fn parse(data: Data<AppState>, path: Path<String>) -> HttpResponse {
+	// Resources
 	if let Some(resource) = RES.get_file(path.clone()) {
 		return HttpResponse::Ok().body(resource.contents())
 	}
-	
-	// Check joined room and cookie-redirect back to feed
+	// Joined room
 	let mut redirect = HttpResponse::TemporaryRedirect();
 	if let Some(joined) = path.into_inner().get_joined(&data.client) {
 		redirect.cookie(Cookie::build("token", joined.room_id().localpart()).finish());
 	}
+	// Fallback
 	redirect
 		.append_header(("location", "/"))
-		.finish()
-}
-
-#[post("/dm")]
-async fn join(form: Form<ExternalForm>) -> HttpResponse {
-	form.register().await;
-	HttpResponse::SeeOther()
-		.append_header(("location", "https://chat.n0g.rip"))
 		.finish()
 }
 
