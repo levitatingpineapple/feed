@@ -5,4 +5,6 @@ rsync \
         --exclude 'target' \
         --exclude '.git' \
         --exclude '.gitignore' \
-        ~/repo/social dendrite@n0g.rip:
+        --exclude '.DS_Store' \
+        --exclude 'sync.sh' \
+        . dendrite@n0g.rip:bot

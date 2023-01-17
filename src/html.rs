@@ -49,7 +49,7 @@ impl ToHtml for MessageType {
 					MediaSource::Plain(uri)
 				) = (MediaEventContent::thumbnail_source(video), &video.source) {
 					format!(
-						"<video controls poster=\"{}{}\"><source src=\"{}{}\" type=\"{}\"></video>",
+						"<video controls loop poster=\"{}{}\"><source src=\"{}{}\" type=\"{}\"></video>",
 						download_path,
 						thumbnail_source.media_id().unwrap(),
 						download_path,

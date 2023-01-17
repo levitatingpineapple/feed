@@ -21,7 +21,7 @@ pub async fn client() -> matrix_sdk::Client {
 pub async fn messages(client: &Client, joined: Option<Joined>) -> Vec<Message> {
 	let mut options = matrix_sdk::room::MessagesOptions::backward();
 	options.limit = uint!(20);
-	joined.unwrap_or(client.get_joined_room(room_id!("!bUtdRxQiBPeYOa3Z:n0g.rip")).unwrap())
+	joined.unwrap_or(client.get_joined_room(room_id!("!dzNc59ALLAgKboRc:n0g.rip")).unwrap())
 		.messages(options)
 		.await.unwrap()
 		.chunk.iter()
@@ -41,7 +41,7 @@ pub async fn messages(client: &Client, joined: Option<Joined>) -> Vec<Message> {
 
 pub async fn tell(client: &Client, message: String) {
 	client
-		.get_joined_room(room_id!("!VoYWevcmDdA2k9Dt:n0g.rip")).unwrap()
+		.get_joined_room(room_id!("!F6MU6R1R1BCYdFmw:n0g.rip")).unwrap()
 		.send(RoomMessageEventContent::text_plain(message), None).await.unwrap();
 }
 

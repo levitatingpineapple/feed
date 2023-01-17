@@ -185,7 +185,7 @@ async fn chat_post(data: Data<AppState>, form: Form<ExternalForm>) -> HttpRespon
 	let registration_status = form.register().await;
 	tell(&data.client, registration_status).await;
 	HttpResponse::SeeOther()
-		.append_header(("location", "https://chat.n0g.rip/#/login"))
+		.append_header(("location", "https://chat.n0g.rip/"))
 		.finish()
 }
 

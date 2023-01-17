@@ -499,6 +499,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "bot"
+version = "0.1.0"
+dependencies = [
+ "actix-web",
+ "actix-ws",
+ "awc",
+ "chrono",
+ "futures-util",
+ "handlebars",
+ "hex",
+ "hmac",
+ "include_dir",
+ "js_int",
+ "matrix-sdk",
+ "rss",
+ "serde",
+ "serde_json",
+ "sha1",
+ "tokio",
+]
+
+[[package]]
 name = "brotli"
 version = "3.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2718,28 +2740,6 @@ name = "smallvec"
 version = "1.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a507befe795404456341dfab10cef66ead4c041f62b8b11bbb92bffe5d0953e0"
-
-[[package]]
-name = "social"
-version = "0.1.0"
-dependencies = [
- "actix-web",
- "actix-ws",
- "awc",
- "chrono",
- "futures-util",
- "handlebars",
- "hex",
- "hmac",
- "include_dir",
- "js_int",
- "matrix-sdk",
- "rss",
- "serde",
- "serde_json",
- "sha1",
- "tokio",
-]
 
 [[package]]
 name = "socket2"
