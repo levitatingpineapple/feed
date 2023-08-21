@@ -20,7 +20,7 @@ pub async fn client() -> matrix_sdk::Client {
 
 pub async fn messages(client: &Client, joined: Option<Joined>) -> Vec<Message> {
 	let mut options = matrix_sdk::room::MessagesOptions::backward();
-	options.limit = uint!(20);
+	options.limit = uint!(32);
 	joined.unwrap_or(client.get_joined_room(room_id!("!dzNc59ALLAgKboRc:n0g.rip")).unwrap())
 		.messages(options)
 		.await.unwrap()
