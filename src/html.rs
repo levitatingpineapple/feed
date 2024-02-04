@@ -1,5 +1,5 @@
 use chrono::{Local, DateTime};
-use matrix_sdk::{ruma::{MilliSecondsSinceUnixEpoch, events::room::{message::MessageType, MediaSource}}, media::MediaEventContent};
+use matrix_sdk::{ruma::{events::room::{message::MessageType, MediaSource}, MilliSecondsSinceUnixEpoch, OwnedMxcUri}, media::MediaEventContent};
 
 pub trait ToHtml { 
 	fn to_html(&self) -> String;
@@ -10,7 +10,7 @@ impl ToHtml for MilliSecondsSinceUnixEpoch {
 		format!(
 			"<time>{}</time>", 
 			DateTime::<Local>::from(self.to_system_time().unwrap())
-				.format("%b %d, %H:%M")
+				.format("%H:%M, %d %b %Y")
 				.to_string()
 		)
 	}
@@ -18,23 +18,20 @@ impl ToHtml for MilliSecondsSinceUnixEpoch {
 
 impl ToHtml for MessageType {
 	fn to_html(&self) -> String {
-		let download_path: &str = "https://n0g.rip/_matrix/media/r0/download/n0g.rip/";
 		match self {
 			MessageType::Audio(audio) => 
 				if let MediaSource::Plain(uri) = &audio.source {
 					format!(	
-						"<audio controls><source src=\"{}{}\" type=\"{}\"></audio>",
-						download_path,
-						uri.media_id().unwrap(), 
+						"<audio controls><source src=\"{}\" type=\"{}\"></audio>",
+						url(uri), 
 						audio.clone().info.unwrap().mimetype.unwrap()
 					)
 				} else { String::new() }
 			MessageType::Image(image) => 
 				if let MediaSource::Plain(uri) = &image.source {
 					format!(
-						"<img src=\"{}{}\" type=\"{}\">",
-						download_path,
-						uri.media_id().unwrap(),
+						"<img src=\"{}\" type=\"{}\">",
+						url(uri),
 						image.clone().info.unwrap().mimetype.unwrap()
 					)
 				} else { String::new() }
@@ -49,15 +46,21 @@ impl ToHtml for MessageType {
 					MediaSource::Plain(uri)
 				) = (MediaEventContent::thumbnail_source(video), &video.source) {
 					format!(
-						"<video controls loop poster=\"{}{}\"><source src=\"{}{}\" type=\"{}\"></video>",
-						download_path,
-						thumbnail_source.media_id().unwrap(),
-						download_path,
-						uri.media_id().unwrap(), 
+						"<video controls loop poster=\"{}\"><source src=\"{}\" type=\"{}\"></video>",
+						url(&thumbnail_source),
+						url(uri),
 						video.clone().info.unwrap().mimetype.unwrap(),
 					)
 				} else { String::new() }
 			_ => String::new()
 		}
 	}
+}
+
+pub fn url(mxc: &OwnedMxcUri) -> String {
+	format!("https://{}/_matrix/media/v3/download/{}/{}", 
+		mxc.server_name().unwrap(),
+		mxc.server_name().unwrap(), 
+		mxc.media_id().unwrap()
+	)
 }

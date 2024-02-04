@@ -1,12 +1,23 @@
 use actix_web::{
-	http::{header::HeaderValue, self}, 
-	cookie::Cookie, 
-	web::{Data, Payload, Path, Form}, 
-	HttpServer, App, HttpRequest, HttpResponse, get, rt, post
+	http, 
+	web::Data, 
+	HttpServer, App, HttpResponse, get
+};
+use clap::{
+	command, 
+	Parser, 
+	arg
 };
 use handlebars::*;
-use include_dir::{include_dir, Dir};
-use matrix_sdk::{Client, ruma::events::room::message::MessageType, room::Joined};
+use matrix_sdk::{
+	config::SyncSettings, 
+	ruma::{
+		events::room::message::MessageType, 
+		RoomId
+	},
+	Client, 
+	Room
+};
 use ::rss::*;
 use chrono::*;
 
@@ -16,69 +27,96 @@ use html::*;
 pub mod matrix;
 use matrix::*;
 
-pub mod chat;
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
+struct Args {
+	/// Bind address
+	#[arg(long, default_value = "localhost")]
+	bind: String,
 
-pub mod signup;
-use signup::*;
-
-static RES: Dir = include_dir!("$CARGO_MANIFEST_DIR/res");
+	/// Port to listen on
+	#[arg(long, default_value_t = 8080)]
+	port: u16,
+	
+	/// Matrix user ID
+	#[arg(long)]
+	mxid: String,
+	
+	/// Matrix password
+	#[arg(long)]
+	pass: String,
+	
+	/// Matrix room name
+	#[arg(long)]
+	room: String
+}
 
 struct AppState {
 	client: Client,
 	handlebars: Handlebars<'static>,
+	room: Room
+}
+
+impl AppState {
+	async fn new(args: &Args) -> Self {
+		let client = matrix::client(&args.mxid, &args.pass).await;
+		client.sync_once(SyncSettings::default()).await.expect("Sync failed!");
+		println!("Synced! ✅");
+		let mut handlebars = Handlebars::new();
+		handlebars.register_template_string("feed", include_str!("feed.html")).unwrap();
+		AppState {
+			client: client.clone(),
+			handlebars: handlebars,
+			room: client.get_room(
+				&RoomId::parse(&args.room)
+					.expect("Invalid room ID!")
+			).expect("Room not found!")
+		}
+	}
 }
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
+	let args: Args = Args::parse();
 	let data = Data::new(
-		AppState { 
-			client: client().await,
-			handlebars: registry()
-		}
+		AppState::new(&args).await
 	);
 	HttpServer::new(move || {
 		App::new()
 			.app_data(data.clone())
 			.service(feed)
 			.service(rss)
-			.service(chat_get)
-			.service(chat_post)
-			.service(parse)
 	})
-	.bind(("localhost", 5555))?
+	.bind((args.bind, args.port))?
 	.run()
 	.await
 }
 
 #[get("/")]
-async fn feed(data: Data<AppState>, http_request: HttpRequest) -> HttpResponse {
+async fn feed(data: Data<AppState>) -> HttpResponse {
 	#[derive(::serde::Serialize)]
 	struct Feed {
-		body: String,
-		chat: String
+		avatar: String,
+		name: String,
+		messages: String
 	}
-	impl Feed {
-		fn new(messages: Vec<Message>, is_chat_visible: bool) -> Feed {
-			Feed {
-				body: messages.iter().map(|m| { 
+	
+	HttpResponse::Ok().body(
+		data.handlebars.render(
+			"feed", 
+			&Feed {
+				avatar: data.room.avatar_url()
+					.map(|mxc| url(&mxc)).unwrap_or(String::new()),
+				name: name(&data.room).await
+					.unwrap_or("Room".to_string()),
+				messages: messages(&data.room).await.iter().map(|m| { 
 					format!(
 						"\t\t\t{}\n\t\t\t{}\n",
 						m.content.msgtype.to_html(),
 						m.origin_server_ts.to_html(),
 					)
-				}).collect::<String>(),
-				chat: if is_chat_visible { "visible" } else { "hidden" }
-					.to_string()
+				}).collect::<String>()
 			}
-		}
-	}
-	HttpResponse::Ok().body(
-		data.handlebars.render(
-			"feed", 
-			&Feed::new(
-				messages(&data.client, None).await,
-				http_request.get_joined(&data.client).is_some()
-			)
 		).unwrap()
 	)
 }
@@ -89,11 +127,19 @@ async fn rss(data: Data<AppState>) -> HttpResponse {
 		.content_type(http::header::ContentType::xml())
 		.body(
 			ChannelBuilder::default()
-			.title("n0g.rip".to_string())
-			.link("http://n0g.rip".to_string())
-			.description("Feed".to_string())
+			.title(name(&data.room).await.unwrap_or("Room".to_string()))
+			.image(
+				data.room
+					.avatar_url()
+					.map(|mxc| 
+						ImageBuilder::default()
+							.url(url(&mxc))
+							.build()
+					)
+			)
+			.link(&data.client.homeserver().to_string())
 			.items(
-				messages(&data.client, None).await.iter().map(|m| {
+				messages(&data.room).await.iter().map(|m| {
 					let title = Some(match m.content.msgtype {
 						MessageType::Audio(_) => "Audio",
 						MessageType::Image(_) => "Image",
@@ -125,97 +171,4 @@ async fn rss(data: Data<AppState>) -> HttpResponse {
 			.build()
 			.to_string()
 		)
-}
-
-#[get("/chat")]
-async fn chat_get(
-	data: Data<AppState>, 
-	http_request: HttpRequest, 
-	payload: Payload
-) -> Result<HttpResponse, actix_web::Error> {
-	match http_request.get_joined(&data.client) {
-		Some(joined) => if http_request.headers().get("upgrade") != Some(
-			&HeaderValue::from_str("websocket").unwrap()
-		) { 
-			// Serve chat html
-			tell(&data.client, format!("Chat served: \n{:?}", joined.name())).await;
-			#[derive(::serde::Serialize)]
-			struct Chat {
-				greeting: String,
-				topic: String
-			}
-			impl Chat {
-				fn new(joined: Joined) -> Chat {
-					Chat {
-						greeting: joined.name()
-							.filter(|n| !n.is_empty())
-							.map_or(String::new(), |n| format!("<h2>Hi, {}!</h2>", n)),
-						topic: joined.topic()
-							.filter(|t| !t.is_empty())
-							.map_or(String::new(), |t| format!("<p>{}</p>", t))
-					}
-				}
-			}
-			Ok(HttpResponse::Ok().body(
-				data.handlebars.render("chat", &Chat::new(joined)).unwrap()
-			))
-		} else {
-			// Connect to web-socket
-			let (response, session, message_stream) = actix_ws::handle(&http_request, payload)?;
-			rt::spawn(
-				chat::handler(
-					data.client.clone(),
-					joined,
-					session, 
-					message_stream
-				)
-			);
-			Ok(response)
-		}
-		// Redirect back to feed if joined room not found
-		None => Ok(HttpResponse::TemporaryRedirect()
-			.append_header(("location", "/"))
-			.finish())
-	}
-}
-
-#[post("/chat")]
-async fn chat_post(data: Data<AppState>, form: Form<ExternalForm>) -> HttpResponse {
-	tell(&data.client, format!("Form received: \n{:?}", form)).await;
-	let registration_status = form.register().await;
-	tell(&data.client, registration_status).await;
-	HttpResponse::SeeOther()
-		.append_header(("location", "https://chat.n0g.rip/"))
-		.finish()
-}
-
-#[get("/{path}")]
-async fn parse(data: Data<AppState>, path: Path<String>) -> HttpResponse {
-	// Resources
-	if let Some(resource) = RES.get_file(path.clone()) {
-		return HttpResponse::Ok().body(resource.contents())
-	}
-	// Joined room
-	let mut redirect = HttpResponse::TemporaryRedirect();
-	if let Some(joined) = path.into_inner().get_joined(&data.client) {
-		redirect.cookie(Cookie::build("token", joined.room_id().localpart()).finish());
-	}
-	// Fallback
-	redirect
-		.append_header(("location", "/"))
-		.finish()
-}
-
-// Helpers
-fn registry() -> Handlebars<'static> {
-	let mut registry = Handlebars::new();
-	registry.register_template_string(
-		"feed", 
-		include_str!("../template/feed.html")
-	).unwrap();
-	registry.register_template_string(
-		"chat", 
-		include_str!("../template/chat.html")
-	).unwrap();
-	registry
 }
