@@ -63,7 +63,7 @@ impl AppState {
 		client.sync_once(SyncSettings::default()).await.expect("Sync failed!");
 		println!("Synced! ✅");
 		let mut handlebars = Handlebars::new();
-		handlebars.register_template_string("feed", include_str!("feed.hb")).unwrap();
+		handlebars.register_template_string("feed", include_str!("feed.hbs")).unwrap();
 		AppState {
 			client: client.clone(),
 			handlebars: handlebars,
