@@ -12,7 +12,7 @@ use handlebars::*;
 use matrix_sdk::{
 	config::SyncSettings, 
 	ruma::{
-		events::room::message::MessageType, 
+		events::room::{message::MessageType, MediaSource}, 
 		RoomId
 	},
 	Client, 
@@ -140,30 +140,21 @@ async fn rss(data: Data<AppState>) -> HttpResponse {
 			.link(&data.client.homeserver().to_string())
 			.items(
 				messages(&data.room).await.iter().map(|m| {
-					let title = Some(match m.content.msgtype {
-						MessageType::Audio(_) => "Audio",
-						MessageType::Image(_) => "Image",
-						MessageType::Text(_) => "Text",
-						MessageType::Video(_) => "Video",
-						_ => "Message",
-					}.to_string());
-					let guid = Some(Guid { 
-						value: m.origin_server_ts.get().to_string(), 
-						permalink: false
-					});
-					let content = Some(m.content.clone().msgtype.to_html());
-					let pub_date = Some(
-						DateTime::<Local>::from(
-							m.origin_server_ts
-								.to_system_time()
-								.unwrap()
-						).to_rfc2822()
-					);
 					ItemBuilder::default()
-						.title(title)
-						.guid(guid)
-						.content(content)
-						.pub_date(pub_date)
+						.title(message_title(&m))
+						.guid(Guid { 
+							value: m.origin_server_ts.get().to_string(), 
+							permalink: false 
+						})
+						.enclosure(message_enclosure(&m))
+						.content(message_text(&m))
+						.pub_date(
+							DateTime::<Local>::from(
+								m.origin_server_ts
+									.to_system_time()
+									.unwrap()
+							).to_rfc2822()
+						)
 						.build()
 				})
 				.collect::<Vec<Item>>()
@@ -171,4 +162,54 @@ async fn rss(data: Data<AppState>) -> HttpResponse {
 			.build()
 			.to_string()
 		)
+}
+
+fn message_title(message: &Message) -> String {
+	match message.content.msgtype {
+		MessageType::Audio(_) => "Audio",
+		MessageType::Image(_) => "Image",
+		MessageType::Text(_) => "Text",
+		MessageType::Video(_) => "Video",
+		_ => "Message",
+	}.to_string()
+}
+
+fn message_text(message: &Message) -> Option<String> {
+	if let MessageType::Text(text) = &message.content.msgtype {
+		Some(text.body.clone())
+	} else { None }
+}
+
+fn message_enclosure(message: &Message) -> Option<Enclosure> {
+	match &message.content.msgtype {
+		MessageType::Audio(audio) =>
+			if let MediaSource::Plain(uri) = &audio.source {
+				Some(
+					EnclosureBuilder::default()
+						.url(url(uri))
+						.mime_type(audio.clone().info.unwrap().mimetype.unwrap())
+						.build()
+				)
+			} else { None }
+		MessageType::Image(image) => 
+			if let MediaSource::Plain(uri) = &image.source {
+				Some(
+					EnclosureBuilder::default()
+						.url(url(uri))
+						.length(image.clone().info.unwrap().size.unwrap().to_string())
+						.mime_type(image.clone().info.unwrap().mimetype.unwrap())
+						.build()
+				)
+			} else { None }
+		MessageType::Video(video) => 
+			if let MediaSource::Plain(uri) = &video.source {
+				Some(
+					EnclosureBuilder::default()
+						.url(url(uri))
+						.mime_type(video.clone().info.unwrap().mimetype.unwrap())
+						.build()
+				)
+			} else { None }
+		_ => None
+	}
 }
