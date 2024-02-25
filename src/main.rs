@@ -15,8 +15,7 @@ use matrix_sdk::{
 		events::room::{message::MessageType, MediaSource}, 
 		RoomId
 	},
-	Client, 
-	Room
+	Client
 };
 use ::rss::*;
 use chrono::*;
@@ -54,7 +53,7 @@ struct Args {
 struct AppState {
 	client: Client,
 	handlebars: Handlebars<'static>,
-	room: Room
+	room_id: matrix_sdk::ruma::OwnedRoomId
 }
 
 impl AppState {
@@ -67,12 +66,18 @@ impl AppState {
 		AppState {
 			client: client.clone(),
 			handlebars: handlebars,
-			room: client.get_room(
-				&RoomId::parse(&args.room)
-					.expect("Invalid room ID!")
-			).expect("Room not found!")
+			room_id: RoomId::parse(&args.room)
+				.expect("Invalid room ID!")
+				.to_owned()
 		}
 	}
+}
+
+#[derive(::serde::Serialize)]
+struct Feed {
+	avatar: String,
+	name: String,
+	messages: String
 }
 
 #[actix_web::main]
@@ -94,22 +99,22 @@ async fn main() -> std::io::Result<()> {
 
 #[get("/")]
 async fn feed(data: Data<AppState>) -> HttpResponse {
-	#[derive(::serde::Serialize)]
-	struct Feed {
-		avatar: String,
-		name: String,
-		messages: String
-	}
+	let room = data.client
+		.get_room(&data.room_id)
+		.expect("Room not found");
+	
+
 	
 	HttpResponse::Ok().body(
 		data.handlebars.render(
 			"feed", 
 			&Feed {
-				avatar: data.room.avatar_url()
-					.map(|mxc| url(&mxc)).unwrap_or(String::new()),
-				name: name(&data.room).await
+				avatar: room.avatar_url()
+					.map(|mxc| url(&mxc))
+					.unwrap_or(String::new()),
+				name: name(&room).await
 					.unwrap_or("Room".to_string()),
-				messages: messages(&data.room).await.iter().map(|m| { 
+				messages: messages(&room).await.iter().map(|m| { 
 					format!(
 						"\t\t\t{}\n\t\t\t{}\n",
 						m.content.msgtype.to_html(),
@@ -123,13 +128,16 @@ async fn feed(data: Data<AppState>) -> HttpResponse {
 
 #[get("/rss")]
 async fn rss(data: Data<AppState>) -> HttpResponse {
+	let room = data.client
+		.get_room(&data.room_id)
+		.expect("Room not found");
 	HttpResponse::Ok()
 		.content_type(http::header::ContentType::xml())
 		.body(
 			ChannelBuilder::default()
-			.title(name(&data.room).await.unwrap_or("Room".to_string()))
+			.title(name(&room).await.unwrap_or("Room".to_string()))
 			.image(
-				data.room
+				room
 					.avatar_url()
 					.map(|mxc| 
 						ImageBuilder::default()
@@ -139,7 +147,7 @@ async fn rss(data: Data<AppState>) -> HttpResponse {
 			)
 			.link(&data.client.homeserver().to_string())
 			.items(
-				messages(&data.room).await.iter().map(|m| {
+				messages(&room).await.iter().map(|m| {
 					ItemBuilder::default()
 						.title(message_title(&m))
 						.guid(Guid { 
